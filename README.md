@@ -18,18 +18,19 @@ This system is for you if you want to build a Lovable app that is:
 
 ### With Lovable AI:
 
-1. **Upload** [AGENTS.md](./AGENTS.md) into Lovable chat before your first draft.
-2. **Instruct** Lovable to include AGENTS.md in the repo and follow it for all generated code.
+1. **Upload** [AGENTS.md](./AGENTS.md) into Lovable chat before your first draft — it contains everything the AI needs, including embedded templates for DASHBOARD.md and QUICKHELP.md.
+2. **Instruct** Lovable to follow AGENTS.md and extract the DASHBOARD.md and QUICKHELP.md templates from the appendices (see [§0.0](./AGENTS.md#00-file-extraction-one-time-setup)).
 3. **Audit** each draft against the [Compliance Matrix](./DASHBOARD.md#compliance-matrix).
 4. **Each build cycle** — reset [DASHBOARD.md](./DASHBOARD.md) checkboxes and update header dates.
 5. **When bugs pile up** — re-audit compliance before adding features. A broken contract upstream is often the root cause.
 
 ### With Other AI Assistants (Cursor, GitHub Copilot, Augment, etc.):
 
-1. **Add** AGENTS.md, DASHBOARD.md, and QUICKHELP.md to your project root.
-2. **During development** — reference AGENTS.md in prompts.
-3. **Before commits** — verify against the [Compliance Matrix](./DASHBOARD.md#compliance-matrix).
-4. **When breaking rules** — log in [CHANGELOG.md](./CHANGELOG.md) per [AGENTS.md §13](./AGENTS.md#13-violations---changelogmd-policy).
+1. **Add** [AGENTS.md](./AGENTS.md) to your project root — it contains embedded templates for the other files.
+2. **First run** — ask the AI to extract DASHBOARD.md and QUICKHELP.md from the appendices (see [AGENTS.md §0.0](./AGENTS.md#00-file-extraction-one-time-setup)).
+3. **During development** — reference AGENTS.md in prompts: "Follow architecture rules in AGENTS.md"
+4. **Before commits** — verify against the [Compliance Matrix](./DASHBOARD.md#compliance-matrix).
+5. **When breaking rules** — log in [CHANGELOG.md](./CHANGELOG.md) per [AGENTS.md §13](./AGENTS.md#13-violations---changelogmd-policy).
 
 See [QUICKHELP.md](./QUICKHELP.md) for common tasks or [AGENTS.md §0](./AGENTS.md#0-how-to-use-this-doc) for the full workflow.
 
