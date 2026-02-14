@@ -44,9 +44,14 @@ This system is organized into layered documents. Start at the top and go deeper 
 | 📖 **[QUICKHELP.md](./QUICKHELP.md)** | First stop — common tasks, scenarios, and FAQ |
 | 📊 **[DASHBOARD.md](./DASHBOARD.md)** | Build cycle compliance status and architecture snapshot |
 | 📋 **[AGENTS.md](./AGENTS.md)** | Full architecture rules and checklists |
-| 🧪 **[SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)** | Dev testing guide — reusable sandbox table for prototyping |
 | 📝 **[CHANGELOG.md](./CHANGELOG.md)** | Version history, violations, and lessons learned |
 | 📚 **[REFERENCES.md](./REFERENCES.md)** | Source material for design principles |
+
+### Off-Road Guides (Advanced Patterns)
+| Document | Purpose |
+|----------|---------|
+| 🧪 **[OFF-ROAD/SUPABASE-TEMP-DEV.md](./OFF-ROAD/SUPABASE-TEMP-DEV.md)** | Dev testing guide — reusable sandbox table for prototyping |
+| 🌐 **[OFF-ROAD/STATIC-HOME-PAGE.md](./OFF-ROAD/STATIC-HOME-PAGE.md)** | SEO guide — make your React SPA home page visible to search engines |
 
 ## Technical Assumptions
 
@@ -169,7 +174,7 @@ When prototyping Supabase features or testing RLS policies outside the Lovable A
 - ❌ Never reference in production code
 
 ### Troubleshooting
-If sandbox setup fails, check the **Lovable Back-and-Forth Scenarios** table in [SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md#lovable-back-and-forth-scenarios):
+If sandbox setup fails, check the **Lovable Back-and-Forth Scenarios** table in [OFF-ROAD/SUPABASE-TEMP-DEV.md](./OFF-ROAD/SUPABASE-TEMP-DEV.md#lovable-back-and-forth-scenarios):
 
 | Symptom | Quick Fix |
 |---------|-----------|
@@ -181,7 +186,7 @@ If sandbox setup fails, check the **Lovable Back-and-Forth Scenarios** table in 
 
 **When escalating to Lovable:** Include curl command, response JSON, project ref, migration filename, and timestamp in one message.
 
-See **[SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)** for complete API reference, curl examples, troubleshooting guide, and graduation workflow.
+See **[OFF-ROAD/SUPABASE-TEMP-DEV.md](./OFF-ROAD/SUPABASE-TEMP-DEV.md)** for complete API reference, curl examples, troubleshooting guide, and graduation workflow.
 
 ## License
 
