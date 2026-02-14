@@ -673,11 +673,45 @@ Bot request  → Cloudflare Worker → serves cached static HTML (never hits Lov
 Human request → Cloudflare Worker → passes through to Lovable SPA (transparent)
 ```
 
+### Prerequisites
+
+Before setting up the Worker, you need **two things ready**:
+
+1. **A Cloudflare account with your domain.** Your domain must use Cloudflare DNS. If it doesn't yet, add your domain to Cloudflare and update your registrar's nameservers. This is free. You can also test with a `yoursite.workers.dev` subdomain first (no domain transfer needed).
+
+2. **A self-contained static HTML page.** This is the HTML the Worker will serve to bots. It must be fully self-contained — all CSS inlined, no external stylesheet `<link>` tags, no module `<script>` tags. The page should include all your SEO meta tags (title, description, OG, Twitter, JSON-LD, canonical, h1).
+
+**How to get your static HTML:**
+
+| Method | When to use | How |
+|--------|-------------|-----|
+| **SEO Capture Tool** (recommended) | You have CLI access and a running site | Run `node scripts/capture-spa.mjs https://yoursite.com` — it captures, inlines CSS, strips JS, and validates SEO tags automatically. Output is at `public/seo-test/index.html`. See [Option A](#option-a-seo-capture-tool-experimental-alpha). |
+| **Manual from Part 1** | No CLI access, or you wrote the page by hand | Use your verified `/seo-test/index.html` from [Step 1](#step-1-create-your-seo-test-page). Open the file and copy its full HTML. |
+| **View Source in browser** | Quick and dirty | Visit your live SPA, View Source (Ctrl+U), copy the full HTML. Then manually add SEO meta tags and inline/remove CSS/JS references. Not recommended — easy to miss things. |
+
+**Verify your HTML is ready before proceeding:**
+
+```bash
+# Has real content (not an empty div)?
+grep -c "<h1>" public/seo-test/index.html          # should print 1+
+
+# No external stylesheets (CSS must be inlined)?
+grep -c 'link rel="stylesheet"' public/seo-test/index.html  # should print 0
+
+# No module scripts (JS must be stripped)?
+grep -c 'type="module"' public/seo-test/index.html  # should print 0
+
+# Has SEO meta tags?
+grep -c "og:title" public/seo-test/index.html       # should print 1+
+```
+
+If any of these fail, go back and fix your HTML first. The Worker will serve exactly what you give it — garbage in, garbage out.
+
 ### Setup
 
-#### 1. Build your static HTML
+#### 1. Find your Lovable origin URL
 
-Use your verified `/seo-test/` page from Part 1 as the source. Copy its full HTML.
+You'll need your Lovable project's direct hosting URL (not your custom domain). This is the URL the Worker will proxy non-bot requests to. Find it in your Lovable project settings — it looks like `https://your-project-id.lovable.app`.
 
 #### 2. Create the Worker
 
@@ -752,19 +786,43 @@ export default {
 };
 ```
 
-#### 3. Route the Worker
+#### 3. Paste your static HTML into the Worker
 
-In Cloudflare DNS, point your domain to Lovable's hosting. Add a Worker Route for `yoursite.com/*` that triggers this Worker.
+In the Worker code above, replace the placeholder `PRERENDERED_HOME` string with your actual verified HTML. Copy the entire contents of your `public/seo-test/index.html` (or wherever your static page lives) and paste it between the backticks.
 
-#### 4. Verify
+Also replace `https://your-project-id.lovable.app` with your actual Lovable origin URL from step 1.
+
+#### 4. Route the Worker
+
+In Cloudflare dashboard:
+
+1. Go to **Websites** → select your domain
+2. Go to **Workers Routes** (under the Workers tab)
+3. Add a route: `yoursite.com/*` → select your Worker
+4. Make sure your domain's DNS is proxied (orange cloud icon) through Cloudflare
+
+**If you're testing with a `workers.dev` subdomain first:** Skip this step — the Worker is already accessible at `your-worker-name.your-account.workers.dev`. Test with that URL before pointing your real domain.
+
+#### 5. Verify
 
 ```bash
-# Simulate Googlebot
+# Simulate Googlebot — should return your static HTML with real content
 curl -s -A "Googlebot" https://yoursite.com/ | grep "<h1>"
 
-# Normal browser request (should still return the SPA)
+# Simulate ChatGPT — should also return static HTML
+curl -s -A "GPTBot" https://yoursite.com/ | grep "<h1>"
+
+# Normal browser request — should still return the SPA (empty div)
 curl -s https://yoursite.com/ | grep '<div id="root">'
+
+# Check the prerender header is present
+curl -sI -A "Googlebot" https://yoursite.com/ | grep -i "x-prerender"
 ```
+
+**All four should pass.** If the bot requests don't return your content, check that:
+- Your Worker route matches the domain exactly
+- The `PRERENDERED_HOME` string contains your actual HTML (not the placeholder)
+- Your DNS is proxied through Cloudflare (not DNS-only)
 
 ### Automating snapshot refresh
 
