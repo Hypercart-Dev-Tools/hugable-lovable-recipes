@@ -1,6 +1,74 @@
-# Static Home Page for Lovable Sites
-**Last updated:** February 2026  
-**Status:** Not started  
+# Static Home Page & SEO Capture for Lovable Sites
+**Last updated:** February 2026
+**Status:** Guide + Experimental Alpha tooling
+
+---
+
+## TLDR: Can you replace a Lovable home page with static HTML?
+
+Not seamlessly — Lovable's SPA architecture has no native path for this. Read the full guide below to understand the constraints and pick your approach:
+
+- **Cloudflare Worker** (free, DIY) — documented in this guide, Part 2 Option C
+- **[lovablehtml.com](https://lovablehtml.com)** — third-party service built specifically for this problem
+
+---
+
+## Table of Contents
+
+- [TLDR](#tldr-can-you-replace-a-lovable-home-page-with-static-html)
+- [LLM Instructions](#llm-instructions)
+- [The Problem](#make-your-reactvite-site-visible-to-search-engines-and-ai-crawlers)
+- [How to Use This Doc](#how-to-use-this-doc)
+- **Part 1: Non-Technical Path**
+  - [Step 1: Create Your SEO Test Page](#step-1-create-your-seo-test-page)
+  - [Step 2: Verify It Works](#step-2-verify-it-works)
+  - [Step 3: Apply to Your Home Page](#step-3-apply-to-your-home-page)
+- **Part 2: Technical Path**
+  - [Option A: SEO Capture Tool](#option-a-seo-capture-tool-experimental-alpha)
+  - [Option B: Prerender at Build Time](#option-b-prerender-at-build-time-puppeteer-postbuild)
+  - [Option C: Cloudflare Worker (Recommended)](#option-c-cloudflare-worker-prerender-proxy-recommended-for-lovable)
+- **Appendix** (alphabetical)
+  - [Decision Flowchart](#decision-flowchart)
+  - [Embedded Scripts (Source of Truth)](#embedded-scripts-source-of-truth)
+  - [Files Checklist](#files-checklist)
+  - [Lessons Learned](#lessons-learned-on-this-project)
+
+---
+
+## LLM Instructions
+
+> **For AI assistants (AGENTS.md context):** This document is a self-contained guide and toolkit for converting a React/Vite SPA home page into a static HTML page that search engines and AI crawlers can read. It contains two embedded scripts (Node.js + Bash) that should be extracted into the user's project when requested.
+>
+> **Available tasks:**
+>
+> 1. **Extract scripts** — When the user wants to use the SEO Capture Tool, extract the two scripts from the "Embedded Scripts" section into `scripts/capture-spa.mjs` and `scripts/capture-and-verify.sh`. Add the npm scripts to `package.json`. Install Puppeteer as a devDependency. Make the bash script executable.
+>
+> 2. **Run capture** — After scripts are extracted, run `node scripts/capture-spa.mjs <url>` to capture a live SPA page as self-contained static HTML.
+>
+> 3. **Full SEO walkthrough** — Walk the user through the entire flow: create `/seo-test/`, verify with crawlers, then choose a promotion strategy (manual copy or Cloudflare Worker).
+>
+> **When extracting scripts:** Copy the code blocks exactly as written. Do not modify the logic. Create the `scripts/` directory if it doesn't exist. The `package.json` additions are:
+> ```json
+> {
+>   "scripts": {
+>     "capture": "node scripts/capture-spa.mjs",
+>     "capture:verify": "./scripts/capture-and-verify.sh"
+>   },
+>   "devDependencies": {
+>     "puppeteer": "^24.37.3"
+>   }
+> }
+> ```
+
+### For users: getting the scripts into your project
+
+Tell your AI assistant:
+
+> "Please read the STATIC-HOME-PAGE.md doc and extract the SEO Capture Tool scripts into my project. Create `scripts/capture-spa.mjs` and `scripts/capture-and-verify.sh` from the embedded code blocks, add the npm scripts to my package.json, and install Puppeteer."
+
+Your AI will pull the code directly from this document — no copy-pasting needed.
+
+---
 
 ## Make your React/Vite site visible to search engines and AI crawlers
 
@@ -23,8 +91,9 @@ Non-Technical (Lovable editor only, no CLI)
   Step 3: Apply the pattern to your home page
 
 Technical (CLI, CI/CD, or Cloudflare)
-  Option A: Automate prerendering with Puppeteer
-  Option B: Cloudflare Worker proxy for bots
+  Option A: SEO Capture Tool — automated capture from a live/dev site
+  Option B: Prerender at build time — Puppeteer postbuild script
+  Option C: Cloudflare Worker — proxy for bots at the edge
 ```
 
 **Everyone starts with the non-technical path.** The technical options are for automating or scaling what you proved works in the test.
@@ -208,7 +277,66 @@ Instead of modifying `/`, update your SEO strategy to point crawlers to `/seo-te
 
 This is unconventional but eliminates all maintenance risk. The tradeoff is a non-root URL for your primary indexed page.
 
-**Important caveat:** Google treats root URLs (`/`) as significantly higher authority for brand queries. If someone searches "YourBrand", Google strongly prefers to show `yoursite.com/` over `yoursite.com/seo-test/`. This option works well for niche or long-tail content, but **not as your primary brand landing page**. If brand search visibility matters to you, treat `/seo-test/` as a stepping stone and plan to promote the content to `/` using Option A or the Technical path.
+**Important caveat:** Google treats root URLs (`/`) as significantly higher authority for brand queries. If someone searches "YourBrand", Google strongly prefers to show `yoursite.com/` over `yoursite.com/seo-test/`. This option works well for niche or long-tail content, but **not as your primary brand landing page**. If brand search visibility matters to you, treat `/seo-test/` as a stepping stone and plan to promote the content to `/` using Option C below or the Technical path.
+
+### Lovable hosting constraint: directory indexes don't resolve
+
+> **Discovery (love2hug.com, Feb 2026):** Lovable's SPA hosting serves the React app's catch-all route (`*` → NotFound component) for **any URL that doesn't match a real file with an extension**. This means:
+> - `/seo-test/` → SPA 404 (catch-all intercepts before directory index resolution)
+> - `/seo-test/index.html` → static file served correctly (has explicit extension)
+>
+> The `public/subfolder/index.html` pattern works for local dev servers and most traditional hosts, but **not on Lovable hosting**. Use the flat file approach (Option C) or Cloudflare Worker (Part 2, Option C) instead.
+
+### Option C: Flat file + JS redirect (quick fix for Lovable)
+
+**How it works:** Rename your static page to a flat file with an extension (e.g., `public/home.html`). Then add a JS redirect in your React Index component so human visitors at `/` get sent to the static page. Bots don't execute JS, so they still see the empty SPA — you'll need a Cloudflare Worker (Part 2, Option C) for bot coverage.
+
+```
+Human at /  → SPA loads → JS redirect → /home.html (static page)
+Bot at /    → sees empty <div id="root"> (JS redirect not executed)
+```
+
+**Steps:**
+
+1. **Move or copy the static HTML to a flat file:**
+   ```
+   public/home.html    ← accessible at /home.html (Lovable serves files with extensions)
+   ```
+
+2. **Add redirect to your React Index component:**
+   ```tsx
+   // In your Index page component (e.g., src/pages/Index.tsx)
+   import { useEffect } from "react";
+
+   const Index = () => {
+     useEffect(() => {
+       window.location.replace("/home.html");
+     }, []);
+
+     // Minimal fallback while redirect happens
+     return null;
+   };
+
+   export default Index;
+   ```
+
+3. **Verify:**
+   ```bash
+   # Static file accessible directly
+   curl -s https://yoursite.com/home.html | grep "<h1>"
+
+   # Root redirects (browsers follow, bots don't)
+   curl -s -L https://yoursite.com/ | grep "<h1>"
+   ```
+
+**Caveats:**
+- **Redirect flash.** Humans see a brief blank page while the SPA loads and redirects. This is a UX hit (two page loads).
+- **Bots are NOT covered.** The JS redirect requires JavaScript execution. Crawlers see the empty SPA, not the static page. **You must pair this with a Cloudflare Worker (Part 2, Option C) for SEO.**
+- **Canonical URL.** Set `<link rel="canonical" href="https://yoursite.com/" />` in `home.html` so Google treats `/` as the authoritative URL, not `/home.html`.
+
+**When to use this:** As a quick stopgap to get humans to the static page immediately while you set up the Cloudflare Worker for bots. The Worker alone (without the redirect) is the cleaner long-term solution — see the recommendation below.
+
+> **Recommendation:** If the SPA renders fine for humans and the only issue is bots can't see content, **skip the redirect entirely** and just use the Cloudflare Worker (Part 2, Option C). The Worker serves static HTML to bots at `/` while humans get the normal SPA — no redirect flash, no React code changes, no extra round trip. Only add the `/home.html` redirect if you have a specific reason to send humans to the static page (e.g., the SPA home page is slow, broken, or you want the fastest possible first paint).
 
 ---
 
@@ -218,10 +346,150 @@ This is unconventional but eliminates all maintenance risk. The tradeoff is a no
 
 These options automate or enhance what you proved works in Part 1. **Do Part 1 first** — if `/seo-test/` doesn't show content to crawlers, these won't either, and you'll have wasted time on infrastructure.
 
-> **Shortcut: SEO Capture Tool (Experimental Alpha)**
-> If you want a single command that handles the entire capture → inline CSS → strip JS → validate SEO → verify pipeline, see [SEO-CAPTURE-TOOL.md](SEO-CAPTURE-TOOL.md). Run `node scripts/capture-spa.mjs <url>` or `./scripts/capture-and-verify.sh <url>` for the full flow with local preview. The tool was built from real-world experience on this project and automates everything in Option A below.
+---
 
-## Option A: Prerender at Build Time (Puppeteer Postbuild)
+## Option A: SEO Capture Tool (Experimental Alpha)
+
+A single command that captures a rendered React/Vite SPA and produces a **self-contained static HTML file** ready for search engines and AI crawlers.
+
+```bash
+node scripts/capture-spa.mjs https://yoursite.com
+```
+
+Or with the full wrapper (capture + local preview):
+
+```bash
+./scripts/capture-and-verify.sh https://yoursite.com
+```
+
+### What it does (7 steps, fully automated)
+
+| Step | Action | Why |
+|------|--------|-----|
+| 1 | Navigate to URL | Loads the SPA in headless Chrome |
+| 2 | Wait for content | Ensures React has finished rendering |
+| 3 | Inline all external CSS | Puppeteer's `page.content()` only captures HTML, not CSS files. Without this, Tailwind utility classes render as unstyled text. This was the #1 bug we hit (see Lessons Learned). |
+| 4 | Remove JS module scripts | Crawlers don't execute JavaScript — that's the whole point of this tool |
+| 5 | Validate SEO meta tags | Checks for title, description, OG tags, Twitter cards, JSON-LD, canonical URL, h1. Warns about anything missing. |
+| 6 | Add capture marker | Injects `<meta name="capture-status">` and timestamp for verification |
+| 7 | Write + self-verify | Saves the file, then re-reads it and runs 7 automated checks |
+
+### Setup
+
+```bash
+# From the project root
+npm install          # installs Puppeteer
+```
+
+> **Don't have the scripts yet?** Tell your AI assistant: *"Extract the SEO Capture Tool scripts from STATIC-HOME-PAGE.md into my project."* See the LLM Instructions section at the top of this doc.
+
+### Usage
+
+**Capture from a live site:**
+```bash
+node scripts/capture-spa.mjs https://yoursite.com
+```
+
+**Capture from a local dev server:**
+```bash
+# Terminal 1: start your Vite dev server
+npm run dev
+
+# Terminal 2: capture it
+node scripts/capture-spa.mjs http://localhost:5173
+```
+
+**Full flow with preview (capture + local server + browser):**
+```bash
+./scripts/capture-and-verify.sh https://yoursite.com
+```
+
+### CLI options
+
+```
+node scripts/capture-spa.mjs <url> [options]
+
+Options:
+  --output <path>   Output file path (default: public/seo-test/index.html)
+  --open            Open the result in the default browser after capture
+```
+
+### Example output
+
+```
+  ======================================
+  SEO Capture Tool — Experimental Alpha
+  ======================================
+  Source: https://love2hug.dev
+  Output: /path/to/public/seo-test/index.html
+
+  [1/7] Navigating to https://love2hug.dev
+    PASS  Page loaded (networkidle0)
+
+  [2/7] Waiting for content to render
+    PASS  Content element found
+
+  [3/7] Inlining external CSS
+    PASS  Inlined 1 stylesheet(s)
+
+  [4/7] Removing module scripts (not needed for SEO)
+    PASS  Removed 1 script(s)
+
+  [5/7] Validating SEO meta tags
+    PASS  <title>: Love2Hug - AGENTS.md Architecture Guide for Lovable P...
+    PASS  meta description: Open-source checklist-driven architecture guide fo...
+    PASS  canonical URL: https://love2hug.dev/
+    PASS  og:title: Love2Hug - AGENTS.md Architecture Guide for Lovable P...
+    PASS  og:description: Open-source checklist-driven architecture guide fo...
+    PASS  og:image: https://love2hug.dev/og-image.png
+    PASS  og:url: https://love2hug.dev/
+    PASS  twitter:card: summary_large_image
+    PASS  JSON-LD structured data: present
+    PASS  <h1> heading: Make your Lovable code Huggable for users — built for ...
+
+  [6/7] Capturing final HTML
+    PASS  Captured 42 KB of HTML
+
+  [7/7] Writing output and verifying
+    ..    Written to: /path/to/public/seo-test/index.html
+    PASS  Has <h1> content
+    PASS  Capture marker present
+    PASS  No external stylesheet links (CSS inlined)
+    PASS  No module script tags (JS stripped)
+    PASS  Has <title> tag
+    PASS  Has meta description
+    PASS  File size: 42 KB
+
+  ======================================
+  Summary
+  ======================================
+  CSS stylesheets inlined: 1
+  JS scripts removed:     1
+  SEO tags found:         10/10
+  Verification:           ALL PASSED
+  Output:                 /path/to/public/seo-test/index.html
+```
+
+### How it fits into the workflow
+
+```
+1. Run capture tool  →  self-contained /seo-test/index.html
+2. Deploy to Lovable  →  verify at https://yoursite.com/seo-test/
+3. Check with crawlers  →  curl, Google Rich Results Test, Free SEO Check
+4. Promote to /  →  Cloudflare Worker (recommended) or manual copy
+```
+
+### Known limitations (Alpha)
+
+- **Requires the target site to be running.** Cannot capture from build output alone (use Option B below for that).
+- **CSS inlining fetches from the same origin.** Cross-origin stylesheets (Google Fonts, CDNs) will be inlined if CORS allows, but may fail silently if not.
+- **No image optimization.** Images are left as-is (external URLs). For a fully self-contained page, you'd need to also download and embed images.
+- **Interactive components won't work.** Accordions, modals, and other JS-driven UI will be frozen in their initial state (collapsed, closed, etc.). This is expected — crawlers don't interact with the page.
+- **Color values for custom themes are not extracted automatically.** If you use the Tailwind CDN fallback, you'll need to manually define CSS custom properties. The tool captures whatever CSS the site already has.
+
+---
+
+## Option B: Prerender at Build Time (Puppeteer Postbuild)
 
 **Goal:** Automatically generate a static HTML snapshot of your home page after every build.
 
@@ -388,19 +656,21 @@ Uncomment when you're confident.
 
 ---
 
-## Option B: Cloudflare Worker Prerender Proxy
+## Option C: Cloudflare Worker Prerender Proxy (Recommended for Lovable)
 
 **Goal:** Intercept crawler requests at the edge and serve static HTML, without changing your Lovable build at all.
 
 **Requires:** Free Cloudflare account. Your domain must use Cloudflare DNS (or use a `yoursite.workers.dev` subdomain for testing).
+
+**Why this is the recommended approach for Lovable:** The Worker solves both the SEO problem (bots see static HTML) and the Lovable hosting constraint (directory indexes don't resolve — see Part 1, Step 3). No React code changes, no redirect flash, no flat file workarounds. The Worker intercepts at the CDN edge before the request ever hits Lovable's SPA routing.
 
 ### How it works
 
 A Cloudflare Worker sits in front of your Lovable site. When it detects a bot user-agent, it serves a prerendered HTML page. Human visitors get the normal SPA.
 
 ```
-Bot request  → Cloudflare Worker → serves cached static HTML
-Human request → Cloudflare Worker → passes through to Lovable SPA
+Bot request  → Cloudflare Worker → serves cached static HTML (never hits Lovable)
+Human request → Cloudflare Worker → passes through to Lovable SPA (transparent)
 ```
 
 ### Setup
@@ -505,6 +775,546 @@ The hardcoded HTML string is manual — same problem as the Spike approach. To a
 
 ---
 
+## Decision flowchart
+
+```
+Start here
+│
+├── Create public/seo-test/index.html (Part 1 — everyone does this)
+│     └── Can you access the file?
+│           ├── /seo-test/ returns 404 → Normal on Lovable (directory indexes don't resolve)
+│           │     └── Try /seo-test/index.html (explicit extension) — does THAT work?
+│           │           ├── No → Check file path, redeploy
+│           │           └── Yes → File exists, you just need a serving strategy ↓
+│           └── /seo-test/ works → Great, continue ↓
+│
+├── Is manual updates to /seo-test/ enough for you?
+│     └── Yes → Done. Update the HTML when your content changes.
+│
+├── Want to automate the capture?
+│     ├── Have CLI access? → Option A (SEO Capture Tool) or Option B (Puppeteer postbuild)
+│     └── No CLI? → Skip to promotion step below
+│
+└── Want bots to see this content on / instead of /seo-test/?
+      ├── Quick fix: Flat file /home.html + JS redirect (covers humans, NOT bots)
+      ├── Recommended: Cloudflare Worker at / for bots (covers bots, clean)
+      └── Both: Redirect for humans + Worker for bots (full coverage)
+```
+
+---
+
+# Embedded Scripts (Source of Truth)
+
+> **LLM Instructions:** When extracting these scripts, copy the code exactly as shown. Create the `scripts/` directory if it doesn't exist. Make `capture-and-verify.sh` executable (`chmod +x`). Merge the `"scripts"` and `"devDependencies"` entries into the project's existing `package.json` — do not overwrite other fields. Run `npm install` after updating `package.json`.
+
+## Script 1: `scripts/capture-spa.mjs`
+
+Core Node.js script — does all 7 capture steps.
+
+**Depends on:** `puppeteer` (devDependency)
+
+```javascript
+#!/usr/bin/env node
+
+/**
+ * capture-spa.mjs — Capture a rendered SPA as a self-contained static HTML page
+ *
+ * EXPERIMENTAL ALPHA — Part of the SEO Capture Tool (see OFF-ROAD/SEO-CAPTURE-TOOL.md)
+ *
+ * Usage:
+ *   node scripts/capture-spa.mjs <url> [--output <path>] [--open]
+ *
+ * Examples:
+ *   node scripts/capture-spa.mjs https://love2hug.dev
+ *   node scripts/capture-spa.mjs http://localhost:5173 --output dist/seo-test/index.html
+ *   node scripts/capture-spa.mjs https://yoursite.com --open
+ *
+ * What it does:
+ *   1. Launches headless Chrome via Puppeteer
+ *   2. Navigates to the URL, waits for content to render
+ *   3. Inlines all external CSS into <style> blocks
+ *   4. Removes <script type="module"> tags (not needed for SEO)
+ *   5. Validates SEO meta tags and warns about missing ones
+ *   6. Adds a capture marker for verification
+ *   7. Writes the self-contained HTML to public/seo-test/index.html
+ *   8. Runs verification checks on the output
+ */
+
+import puppeteer from 'puppeteer';
+import { readFile, writeFile, mkdir } from 'fs/promises';
+import { resolve } from 'path';
+
+// --- Configuration ---
+const DEFAULTS = {
+  output: resolve('public', 'seo-test', 'index.html'),
+  timeout: 30000,
+  contentTimeout: 10000,
+  contentSelectors: 'h1, [data-testid="home"], main, [role="main"]',
+};
+
+// --- CLI argument parsing ---
+function parseArgs(argv) {
+  const args = argv.slice(2);
+  const config = { url: null, output: DEFAULTS.output, open: false };
+
+  for (let i = 0; i < args.length; i++) {
+    if (args[i] === '--output' && args[i + 1]) {
+      config.output = resolve(args[++i]);
+    } else if (args[i] === '--open') {
+      config.open = true;
+    } else if (!args[i].startsWith('--')) {
+      config.url = args[i];
+    }
+  }
+  return config;
+}
+
+// --- Logging helpers ---
+const log = {
+  step: (n, msg) => console.log(`\n  [${n}/7] ${msg}`),
+  pass: (msg) => console.log(`    PASS  ${msg}`),
+  warn: (msg) => console.log(`    WARN  ${msg}`),
+  fail: (msg) => console.log(`    FAIL  ${msg}`),
+  info: (msg) => console.log(`    ..    ${msg}`),
+};
+
+// --- Step 1: Navigate ---
+async function navigate(page, url) {
+  log.step(1, `Navigating to ${url}`);
+  try {
+    await page.goto(url, { waitUntil: 'networkidle0', timeout: DEFAULTS.timeout });
+    log.pass('Page loaded (networkidle0)');
+  } catch (e) {
+    log.fail(`Navigation failed: ${e.message}`);
+    throw e;
+  }
+}
+
+// --- Step 2: Wait for content ---
+async function waitForContent(page) {
+  log.step(2, 'Waiting for content to render');
+  try {
+    await page.waitForSelector(DEFAULTS.contentSelectors, { timeout: DEFAULTS.contentTimeout });
+    log.pass('Content element found');
+  } catch {
+    log.warn('No h1/main/[data-testid="home"] found — page may be empty or use different selectors');
+  }
+}
+
+// --- Step 3: Inline CSS ---
+async function inlineCSS(page) {
+  log.step(3, 'Inlining external CSS');
+  const result = await page.evaluate(async () => {
+    const links = document.querySelectorAll('link[rel="stylesheet"]');
+    let inlined = 0;
+    let failed = 0;
+    for (const link of links) {
+      try {
+        const res = await fetch(link.href);
+        if (!res.ok) throw new Error(`HTTP ${res.status}`);
+        const css = await res.text();
+        const style = document.createElement('style');
+        style.setAttribute('data-inlined-from', link.getAttribute('href') || 'unknown');
+        style.textContent = css;
+        link.replaceWith(style);
+        inlined++;
+      } catch {
+        failed++;
+      }
+    }
+    return { total: links.length, inlined, failed };
+  });
+
+  if (result.total === 0) {
+    log.info('No external stylesheets found (CSS may already be inline)');
+  } else if (result.failed > 0) {
+    log.warn(`Inlined ${result.inlined}/${result.total} stylesheets (${result.failed} failed)`);
+  } else {
+    log.pass(`Inlined ${result.inlined} stylesheet(s)`);
+  }
+  return result;
+}
+
+// --- Step 4: Strip JS ---
+async function stripJS(page) {
+  log.step(4, 'Removing module scripts (not needed for SEO)');
+  const removed = await page.evaluate(() => {
+    const scripts = document.querySelectorAll('script[type="module"], script[src*="/assets/"]');
+    const count = scripts.length;
+    scripts.forEach(s => s.remove());
+    return count;
+  });
+
+  if (removed > 0) {
+    log.pass(`Removed ${removed} script(s)`);
+  } else {
+    log.info('No module/asset scripts found');
+  }
+  return removed;
+}
+
+// --- Step 5: Validate SEO tags ---
+async function validateSEO(page) {
+  log.step(5, 'Validating SEO meta tags');
+  const seo = await page.evaluate(() => {
+    const get = (sel) => {
+      const el = document.querySelector(sel);
+      return el ? (el.getAttribute('content') || el.textContent || '').trim() : null;
+    };
+    return {
+      title: document.title || null,
+      description: get('meta[name="description"]'),
+      canonical: document.querySelector('link[rel="canonical"]')?.getAttribute('href') || null,
+      ogTitle: get('meta[property="og:title"]'),
+      ogDescription: get('meta[property="og:description"]'),
+      ogImage: get('meta[property="og:image"]'),
+      ogUrl: get('meta[property="og:url"]'),
+      twitterCard: get('meta[name="twitter:card"]'),
+      jsonLd: document.querySelector('script[type="application/ld+json"]') ? 'present' : null,
+      h1: document.querySelector('h1')?.textContent?.trim()?.substring(0, 80) || null,
+    };
+  });
+
+  const checks = [
+    ['<title>', seo.title],
+    ['meta description', seo.description],
+    ['canonical URL', seo.canonical],
+    ['og:title', seo.ogTitle],
+    ['og:description', seo.ogDescription],
+    ['og:image', seo.ogImage],
+    ['og:url', seo.ogUrl],
+    ['twitter:card', seo.twitterCard],
+    ['JSON-LD structured data', seo.jsonLd],
+    ['<h1> heading', seo.h1],
+  ];
+
+  let passed = 0;
+  let warned = 0;
+  for (const [name, value] of checks) {
+    if (value) {
+      log.pass(`${name}: ${value.substring(0, 60)}${value.length > 60 ? '...' : ''}`);
+      passed++;
+    } else {
+      log.warn(`${name}: MISSING`);
+      warned++;
+    }
+  }
+
+  return { seo, passed, warned, total: checks.length };
+}
+
+// --- Step 6: Capture + marker ---
+async function captureHTML(page) {
+  log.step(6, 'Capturing final HTML');
+  const html = await page.content();
+  const timestamp = new Date().toISOString();
+  const marked = html.replace(
+    '</head>',
+    `<meta name="capture-status" content="captured" />\n<meta name="capture-timestamp" content="${timestamp}" />\n</head>`
+  );
+  log.pass(`Captured ${(marked.length / 1024).toFixed(0)} KB of HTML`);
+  return marked;
+}
+
+// --- Step 7: Write + verify ---
+async function writeAndVerify(html, outputPath) {
+  log.step(7, 'Writing output and verifying');
+
+  const outDir = resolve(outputPath, '..');
+  await mkdir(outDir, { recursive: true });
+  await writeFile(outputPath, html, 'utf-8');
+  log.info(`Written to: ${outputPath}`);
+
+  // Verification checks on the written file
+  const content = await readFile(outputPath, 'utf-8');
+  const checks = {
+    hasContent: /<h1[^>]*>/.test(content),
+    hasMarker: content.includes('capture-status'),
+    noExternalCSS: !/<link[^>]*rel=["']stylesheet["'][^>]*>/.test(content),
+    noModuleScripts: !/<script[^>]*type=["']module["'][^>]*>/.test(content),
+    hasTitle: /<title[^>]*>[^<]+<\/title>/.test(content),
+    hasDescription: /meta[^>]*name=["']description["']/.test(content),
+    sizeOK: content.length > 1000,
+  };
+
+  const labels = {
+    hasContent: 'Has <h1> content',
+    hasMarker: 'Capture marker present',
+    noExternalCSS: 'No external stylesheet links (CSS inlined)',
+    noModuleScripts: 'No module script tags (JS stripped)',
+    hasTitle: 'Has <title> tag',
+    hasDescription: 'Has meta description',
+    sizeOK: `File size: ${(content.length / 1024).toFixed(0)} KB`,
+  };
+
+  let allPassed = true;
+  for (const [key, passed] of Object.entries(checks)) {
+    if (passed) {
+      log.pass(labels[key]);
+    } else {
+      log.fail(labels[key]);
+      allPassed = false;
+    }
+  }
+
+  return { allPassed, checks };
+}
+
+// --- Main ---
+async function main() {
+  const config = parseArgs(process.argv);
+
+  if (!config.url) {
+    console.error(`
+  SEO Capture Tool — Experimental Alpha
+
+  Usage: node scripts/capture-spa.mjs <url> [options]
+
+  Options:
+    --output <path>   Output file path (default: public/seo-test/index.html)
+    --open            Open the result in the default browser after capture
+
+  Examples:
+    node scripts/capture-spa.mjs https://yoursite.com
+    node scripts/capture-spa.mjs http://localhost:5173 --open
+    node scripts/capture-spa.mjs https://yoursite.com --output dist/seo-test/index.html
+`);
+    process.exit(1);
+  }
+
+  console.log('\n  ======================================');
+  console.log('  SEO Capture Tool — Experimental Alpha');
+  console.log('  ======================================');
+  console.log(`  Source: ${config.url}`);
+  console.log(`  Output: ${config.output}`);
+
+  const browser = await puppeteer.launch({ headless: true, args: ['--no-sandbox'] });
+
+  try {
+    const page = await browser.newPage();
+    // Set a realistic viewport
+    await page.setViewport({ width: 1280, height: 800 });
+
+    await navigate(page, config.url);
+    await waitForContent(page);
+    const cssResult = await inlineCSS(page);
+    const jsRemoved = await stripJS(page);
+    const seoResult = await validateSEO(page);
+    const html = await captureHTML(page);
+    const verifyResult = await writeAndVerify(html, config.output);
+
+    // --- Summary ---
+    console.log('\n  ======================================');
+    console.log('  Summary');
+    console.log('  ======================================');
+    console.log(`  CSS stylesheets inlined: ${cssResult.inlined}`);
+    console.log(`  JS scripts removed:     ${jsRemoved}`);
+    console.log(`  SEO tags found:         ${seoResult.passed}/${seoResult.total}`);
+    console.log(`  Verification:           ${verifyResult.allPassed ? 'ALL PASSED' : 'SOME CHECKS FAILED'}`);
+    console.log(`  Output:                 ${config.output}`);
+
+    if (seoResult.warned > 0) {
+      console.log(`\n  ${seoResult.warned} SEO tag(s) missing — see warnings above.`);
+    }
+
+    if (!verifyResult.allPassed) {
+      console.log('\n  Some verification checks failed. Review the output before deploying.');
+    }
+
+    console.log('');
+
+    // Open in browser if requested
+    if (config.open) {
+      const { exec } = await import('child_process');
+      const cmd = process.platform === 'darwin' ? 'open' : process.platform === 'win32' ? 'start' : 'xdg-open';
+      exec(`${cmd} "${config.output}"`);
+      console.log(`  Opened in browser.\n`);
+    }
+
+    process.exit(verifyResult.allPassed ? 0 : 1);
+  } finally {
+    await browser.close();
+  }
+}
+
+main().catch(err => {
+  console.error(`\n  FATAL: ${err.message}\n`);
+  process.exit(1);
+});
+```
+
+## Script 2: `scripts/capture-and-verify.sh`
+
+Bash wrapper — runs the Node script, starts a local preview server, opens your browser.
+
+**Depends on:** Node.js, Puppeteer (npm), Python 3 (optional, for local preview)
+
+```bash
+#!/usr/bin/env bash
+#
+# capture-and-verify.sh — End-to-end SEO capture + local preview
+#
+# EXPERIMENTAL ALPHA — Part of the SEO Capture Tool
+#
+# Usage:
+#   ./scripts/capture-and-verify.sh <url>
+#   ./scripts/capture-and-verify.sh https://yoursite.com
+#   ./scripts/capture-and-verify.sh http://localhost:5173
+#
+# What it does:
+#   1. Runs the Node capture script (capture-spa.mjs)
+#   2. Starts a local Python HTTP server
+#   3. Opens the captured page in your browser
+#   4. Waits for you to review, then cleans up
+#
+
+set -euo pipefail
+
+SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
+OUTPUT_DIR="$PROJECT_DIR/public"
+OUTPUT_FILE="$OUTPUT_DIR/seo-test/index.html"
+SERVER_PORT=0  # will be assigned
+
+# Colors
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+NC='\033[0m' # No Color
+BOLD='\033[1m'
+
+# --- Helpers ---
+info()  { echo -e "${CYAN}[info]${NC}  $1"; }
+ok()    { echo -e "${GREEN}[ok]${NC}    $1"; }
+warn()  { echo -e "${YELLOW}[warn]${NC}  $1"; }
+fail()  { echo -e "${RED}[fail]${NC}  $1"; }
+
+cleanup() {
+  if [ -n "${SERVER_PID:-}" ] && kill -0 "$SERVER_PID" 2>/dev/null; then
+    kill "$SERVER_PID" 2>/dev/null || true
+    info "Stopped local server (PID $SERVER_PID)"
+  fi
+}
+trap cleanup EXIT
+
+# --- Argument check ---
+if [ $# -lt 1 ]; then
+  echo ""
+  echo -e "${BOLD}  SEO Capture Tool — Experimental Alpha${NC}"
+  echo ""
+  echo "  Usage: $0 <url>"
+  echo ""
+  echo "  Examples:"
+  echo "    $0 https://yoursite.com"
+  echo "    $0 http://localhost:5173"
+  echo ""
+  exit 1
+fi
+
+URL="$1"
+
+echo ""
+echo -e "${BOLD}  ======================================${NC}"
+echo -e "${BOLD}  SEO Capture + Verify${NC}"
+echo -e "${BOLD}  ======================================${NC}"
+echo ""
+
+# --- Step 1: Check dependencies ---
+info "Checking dependencies..."
+
+if ! command -v node &>/dev/null; then
+  fail "Node.js not found. Install it from https://nodejs.org"
+  exit 1
+fi
+ok "Node.js $(node --version)"
+
+if ! [ -d "$PROJECT_DIR/node_modules/puppeteer" ]; then
+  warn "Puppeteer not installed. Running npm install..."
+  (cd "$PROJECT_DIR" && npm install)
+fi
+ok "Puppeteer installed"
+
+if ! command -v python3 &>/dev/null; then
+  warn "Python3 not found — skipping local preview server"
+  NO_SERVER=true
+else
+  ok "Python3 $(python3 --version 2>&1 | awk '{print $2}')"
+  NO_SERVER=false
+fi
+
+# --- Step 2: Run capture ---
+echo ""
+info "Running capture script..."
+echo ""
+
+node "$SCRIPT_DIR/capture-spa.mjs" "$URL" --output "$OUTPUT_FILE"
+CAPTURE_EXIT=$?
+
+if [ $CAPTURE_EXIT -ne 0 ]; then
+  echo ""
+  fail "Capture script exited with errors (code $CAPTURE_EXIT)"
+  echo "  Review the warnings above and fix any issues before deploying."
+  echo ""
+  exit $CAPTURE_EXIT
+fi
+
+# --- Step 3: Start local server + open browser ---
+if [ "$NO_SERVER" = false ] && [ -f "$OUTPUT_FILE" ]; then
+  echo ""
+  info "Starting local preview server..."
+
+  # Find an available port
+  SERVER_PORT=$(python3 -c "import socket; s=socket.socket(); s.bind(('',0)); print(s.getsockname()[1]); s.close()")
+
+  (cd "$OUTPUT_DIR" && python3 -m http.server "$SERVER_PORT" --bind 127.0.0.1 &>/dev/null) &
+  SERVER_PID=$!
+  sleep 1
+
+  PREVIEW_URL="http://localhost:$SERVER_PORT/seo-test/"
+
+  if kill -0 "$SERVER_PID" 2>/dev/null; then
+    ok "Server running at $PREVIEW_URL"
+
+    # Open in browser
+    if [ "$(uname)" = "Darwin" ]; then
+      open "$PREVIEW_URL"
+    elif command -v xdg-open &>/dev/null; then
+      xdg-open "$PREVIEW_URL"
+    fi
+
+    echo ""
+    echo -e "  ${BOLD}Preview is open in your browser.${NC}"
+    echo "  Press Enter to stop the server and exit..."
+    read -r
+  else
+    warn "Server failed to start on port $SERVER_PORT"
+  fi
+fi
+
+echo ""
+ok "Done. Output is at: $OUTPUT_FILE"
+echo ""
+```
+
+## `package.json` additions
+
+Merge these into your project's `package.json`:
+
+```json
+{
+  "scripts": {
+    "capture": "node scripts/capture-spa.mjs",
+    "capture:verify": "./scripts/capture-and-verify.sh"
+  },
+  "devDependencies": {
+    "puppeteer": "^24.37.3"
+  }
+}
+```
+
+---
+
 ## Files checklist
 
 Regardless of which path you use, make sure these files exist:
@@ -572,31 +1382,6 @@ Keep it short and factual. This is what AI models read when someone asks "What i
 
 ---
 
-## Decision flowchart
-
-```
-Start here
-│
-├── Create public/seo-test/index.html (Part 1 — everyone does this)
-│     └── Does /seo-test/ show content to crawlers?
-│           ├── No → Check file path, redeploy, ask in Lovable community
-│           └── Yes ↓
-│
-├── Is manual updates to /seo-test/ enough for you?
-│     └── Yes → Done. Update the HTML when your content changes.
-│
-├── Want to automate it?
-│     ├── Have CLI access? → Option A (Puppeteer postbuild)
-│     └── No CLI? → Option B (Cloudflare Worker)
-│
-└── Want bots to see this content on / instead of /seo-test/?
-      ├── Option A: Copy static HTML into root index.html (manual, Lovable may overwrite)
-      └── Option B: Cloudflare Worker intercepts / for bots (automated, no Lovable changes)
-```
-
----
-
-
 ## Lessons Learned on this Project
 Attn LLMs: please update this section with real world results and adaptations.
 
@@ -623,3 +1408,21 @@ This makes the SEO test page fully self-contained, which aligns with the doc's o
 The JS bundle is not needed for an SEO test page (crawlers don't execute JavaScript — that's the whole point). The CSS is critical for visual verification in a browser.
 
 **Color accuracy note:** The HSL values in the CSS custom properties are approximations based on the class names and site branding. To get exact values, inspect the live site's computed styles once it is back online, or extract them from the Lovable project's `src/index.css` or Tailwind config.
+
+### 2026-02-14 — Lovable hosting doesn't resolve directory indexes
+
+**Problem:** `public/seo-test/index.html` exists with valid HTML, but visiting `/seo-test/` or `/seo-test` on Lovable hosting returns the SPA's 404 page (NotFound component). The file IS accessible at `/seo-test/index.html` (with explicit `.html` extension).
+
+**Root cause:** Lovable's SPA hosting serves the React app's catch-all route (`*` → NotFound) for any URL that doesn't match a real file with an extension. The server does not perform directory index resolution (`/folder/` → `/folder/index.html`) before the SPA catch-all kicks in. This is standard SPA hosting behavior (Netlify, Vercel, etc. all have similar routing), but it breaks the common assumption that `public/subfolder/index.html` will be served at `/subfolder/`.
+
+**Workarounds discovered:**
+1. **Flat file with extension:** Move `public/seo-test/index.html` to `public/home.html`. Accessible at `/home.html` directly. Combine with a JS redirect from the React Index component for human visitors.
+2. **Cloudflare Worker (recommended):** Intercept bot requests at `/` at the CDN edge, before they hit Lovable's SPA routing. Serves static HTML to crawlers while humans get the normal SPA. No React code changes needed.
+
+**Takeaway:** On Lovable (and similar SPA hosts), never rely on directory index resolution for static pages. Either use flat files with explicit extensions (`/page.html`) or handle routing at the edge (Cloudflare Worker, Vercel rewrites, Netlify redirects).
+
+### 2026-02-14 — Abandoned SSG entry point causes build errors
+
+**Problem:** An abandoned `src/main-ssg.tsx` file (SSG entry point) and `ssgOptions` in `vite.config.ts` caused build errors. The project uses standard SPA architecture, not SSG.
+
+**Fix:** Deleted `src/main-ssg.tsx` and removed `ssgOptions` from `vite.config.ts`. If you're following this guide, don't try to add SSG to a Lovable project — it's not compatible with Lovable's build pipeline. Use the capture tool or Cloudflare Worker approach instead.

@@ -2,3 +2,6 @@
 /home-page-assets
 /node_modules
 .DS_Store
+/public
+/temp
+/tmp
