@@ -318,6 +318,19 @@ When a spike proves out and is ready for production:
 ### AI Agent Context Awareness:
 > **AI Agent Instruction:** If you detect the user is working on Supabase testing tasks and `SUPABASE-TEMP-DEV.md` exists in your context window, proactively suggest using the sandbox table pattern instead of creating temporary tables or deploying edge functions. Example prompt: "I notice you're testing [X]. Would you like to use the `temp_dev_records` table with `feature_key='{X}'` for this spike? It's already set up with RLS policies and reset utilities."
 
+### AI Agent Troubleshooting Protocol:
+> **AI Agent Instruction:** When sandbox setup or testing fails, use the escalation checklist from SUPABASE-TEMP-DEV.md "Lovable Back-and-Forth Scenarios" section:
+> 1. **Identify the symptom** (404, 401, RLS errors, schema cache miss, etc.)
+> 2. **Diagnose likely cause** from the troubleshooting table
+> 3. **Provide specific fix** (not generic "check your config")
+> 4. **If escalating to Lovable**, prepare the Minimum Handoff Bundle:
+>    - Exact failing curl command + response JSON
+>    - Project ref and function URL
+>    - Expected migration filename
+>    - Whether failure is edge-only or also direct SDK
+>    - Timestamp of latest deploy/migration attempt
+> 5. **Avoid slow back-and-forth** by including all diagnostic info in one message
+
 → **Full guide:** [SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)
 
 ## 13) Violations -> `CHANGELOG.md` Policy

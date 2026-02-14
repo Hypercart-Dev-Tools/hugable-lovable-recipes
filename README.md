@@ -164,11 +164,24 @@ When prototyping Supabase features or testing RLS policies outside the Lovable A
 - ✅ Quick JSONB query experiments
 - ✅ RLS policy prototyping
 - ✅ Auth flow validation
-- ✅ Drag-drop ordering tests
+- ✅ Drag-drop ordering tests (see Kanban Positioning Spike example)
 - ✅ Cache tuning experiments
 - ❌ Never reference in production code
 
-See **[SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)** for complete API reference, curl examples, and graduation workflow.
+### Troubleshooting
+If sandbox setup fails, check the **Lovable Back-and-Forth Scenarios** table in [SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md#lovable-back-and-forth-scenarios):
+
+| Symptom | Quick Fix |
+|---------|-----------|
+| `404` from edge function | Wait 1-2 min for deployment propagation |
+| `401 Unauthorized` | Refresh your access token |
+| `Could not find table` | Apply migration + run `NOTIFY pgrst, 'reload schema';` |
+| `403` / RLS errors | Verify `user_id` matches `auth.uid()` |
+| Edge fails, SDK works | Check `supabase/config.toml` function settings |
+
+**When escalating to Lovable:** Include curl command, response JSON, project ref, migration filename, and timestamp in one message.
+
+See **[SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)** for complete API reference, curl examples, troubleshooting guide, and graduation workflow.
 
 ## License
 

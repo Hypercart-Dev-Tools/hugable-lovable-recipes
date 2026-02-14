@@ -123,6 +123,37 @@ Every record is scoped by `feature_key`. This lets multiple spikes share one tab
 
 **Rule:** Always set an explicit `feature_key`. The default is `'general'` but avoid it for real spikes.
 
+## Kanban Positioning Spike Workflow
+
+Use route:
+- `/spike/db-dev-sandbox`
+
+Recommended feature key:
+- `kanban_insert_order`
+
+The page now includes a **Kanban Positioning Spike (Two-Set Insert)** panel that lets you:
+- model current-column reorder (`source_column_id === destination_column_id`)
+- model cross-column insert (`source_column_id !== destination_column_id`)
+- persist each case snapshot as one temp record
+
+Stored JSON payload shape:
+
+```json
+{
+  "source_column_id": "doing",
+  "destination_column_id": "testing",
+  "moving_card_id": "PR-123",
+  "source_cards_before": ["PR-101", "PR-123", "PR-204"],
+  "destination_cards_before": ["PR-305", "PR-401"],
+  "destination_index_requested": 1,
+  "destination_index_applied": 1,
+  "source_cards_after": ["PR-101", "PR-204"],
+  "destination_cards_after": ["PR-305", "PR-123", "PR-401"]
+}
+```
+
+This gives a repeatable DB-backed dataset for evaluating insert-position algorithms before production schema changes.
+
 ---
 
 ## Edge Function API
@@ -293,6 +324,34 @@ When a spike proves out and is ready for production:
 - Keep `feature_key` **explicit** for every spike.
 - Prefer adding new JSON payload keys over altering the schema.
 - Set `expires_at` for time-boxed experiments so `purge_expired` can clean up automatically.
+
+---
+
+## Lovable Back-and-Forth Scenarios
+
+Use this as the escalation checklist when Codex/app-side tests fail and you need Lovable to adjust cloud-side setup.
+
+| Symptom | Likely Cause | What to Ask Lovable |
+|---|---|---|
+| `404` from `/functions/v1/temp-dev-sandbox` | Function not deployed yet, wrong project ref, or propagation delay | Confirm function deployed to the correct project ref; wait 1-2 minutes and re-test. |
+| `401 Unauthorized` | Missing/expired `USER_JWT`, malformed `Authorization` header | Confirm auth flow is active and provide fresh access token retrieval steps. |
+| `Could not find the table 'public.temp_dev_records' in the schema cache` | Migration not applied remotely, or PostgREST schema cache not refreshed | Apply `20260214214000_temp_dev_db_sandbox.sql` on hosted DB and run `NOTIFY pgrst, 'reload schema';`. |
+| `403` / RLS policy errors | Missing or incorrect RLS policies, or `user_id` not matching `auth.uid()` | Re-verify table RLS policies and tenant isolation checks for both temp tables. |
+| Edge calls fail but direct SDK fallback works | Edge function config mismatch (`verify_jwt`, env headers, claim parsing) | Confirm `supabase/config.toml` function settings and edge auth validation logic match this repo contract. |
+| Smoke test passes but UI page still errors | Frontend env/session issue (`VITE_SUPABASE_URL`, `VITE_SUPABASE_PUBLISHABLE_KEY`, missing session) | Validate Lovable environment variables and session availability in browser runtime. |
+| Build/type errors after Lovable rewrites files | Drift between generated cloud edits and local repo types/contracts | Ask Lovable for exact file diff + failing compiler output; then patch locally with minimal contract-preserving changes. |
+
+### Minimum Handoff Bundle to Send Lovable
+
+When escalation is needed, include all of the following in one message:
+
+1. Exact failing curl command and response JSON.
+2. Project ref and function URL.
+3. Current migration filename expected (`20260214214000_temp_dev_db_sandbox.sql`).
+4. Whether failure is edge-only or also direct SDK.
+5. Timestamp of latest deploy/migration attempt.
+
+This short bundle prevents slow back-and-forth and makes cloud-side triage much faster.
 
 ---
 

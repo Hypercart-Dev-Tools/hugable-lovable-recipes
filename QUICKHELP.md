@@ -105,6 +105,16 @@ In the changelog, using the standard entry format with `#lessonslearned` tag.
 → [AGENTS.md §13](./AGENTS.md#13-violations---changelogmd-policy) | [CHANGELOG.md](./CHANGELOG.md)
 
 ### "How do I test Supabase features without deploying edge functions?"
-Use the `dev_sandbox` table pattern. Ask your AI assistant to run the one-time setup wizard, then use the sandbox for prototyping queries, RLS policies, and data structures. Reset between test runs with `supabase.rpc('reset_my_sandbox')`.
+Use the `temp_dev_records` table pattern. Ask your AI assistant to run the one-time setup wizard, then use the sandbox for prototyping queries, RLS policies, and data structures. Reset between test runs with `DELETE ?action=reset_feature&feature_key={key}`.
 → [SUPABASE-TEMP-DEV.md](./SUPABASE-TEMP-DEV.md)
+
+### "The sandbox setup failed with 404/401/RLS errors"
+Check the **Lovable Back-and-Forth Scenarios** troubleshooting table in SUPABASE-TEMP-DEV.md. Common fixes:
+- **404**: Wait 1-2 minutes for edge function deployment propagation
+- **401**: Refresh your access token
+- **Table not found**: Apply migration and reload PostgREST schema cache
+- **RLS errors**: Verify `user_id` matches `auth.uid()`
+
+When escalating to Lovable, include: curl command, response JSON, project ref, migration filename, and timestamp.
+→ [SUPABASE-TEMP-DEV.md — Troubleshooting](./SUPABASE-TEMP-DEV.md#lovable-back-and-forth-scenarios)
 
